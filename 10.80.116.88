@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+ 
+use strict;
+ 
+use PHP::Interpreter;
+use DBI;
+ 
+my $php = PHP::Interpreter->new;
+$php->eval(q/
+    $perl = Perl::getInstance();
+    $dbh = $perl->call_static_method('DBI', 'connect', "dbi:SQLite:dbname=dbfile", "", "");
+    $dbh->do('CREATE TABLE foo (bar text)');
+    $dbh->do("INSERT INTO foo values ('This is a test')");
+    $sel = $dbh->prepare('SELECT bar FROM foo');
+    $sel->execute();
+    foreach ($sel->fetch() as $val) {
+        echo "$val\n";
+    }
+    $sel->finish();
+    $dbh->disconnect();
+/);
+ 
+unlink 'dbfile';
+exit;

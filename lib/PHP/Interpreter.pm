@@ -30,7 +30,7 @@ require DynaLoader;
 
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = "1.0";
+$VERSION = "1.0.1";
 @ISA = qw(Exporter DynaLoader);
 bootstrap PHP::Interpreter || die "couldn't bootstrap PHP::Interpreter";
 

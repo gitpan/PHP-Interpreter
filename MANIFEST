@@ -1,5 +1,15 @@
+.gdb_history
+10.80.116.88
+a
+a.c
+a.pl
+a.t
+b.pl
+Changes
+ktrace.out
 lib/PHP/Interpreter.pm
 lib/PHP/Interpreter/Class.pm
+lib/PHP/Interpreter/Resource.pm
 Makefile.PL
 MANIFEST			This list of files
 META.yml
@@ -10,6 +20,7 @@ phpinterp.c
 phpinterp.h
 README
 stuff/TSRM.patch
+t/.gdb_history
 t/1.t
 t/10.t
 t/11.t
@@ -36,3 +47,4 @@ t/test.inc
 t/test_perl_classes.t
 TODO
 typemap
+www1.actioneconomics.com
