@@ -18,6 +18,13 @@
 static sandwich_per_interp *one_true_interp = NULL;
 #endif
 
+struct interp_list {
+  void *interp;
+  struct interp_list *next;
+};
+
+static struct interp_list *free_interps = NULL;
+
 static pthread_key_t sandwich_per_thread_info_key;
 
 /* {{{ sandwich SAPI Details */
@@ -88,7 +95,7 @@ static sapi_module_struct sandwich_sapi = {
   "sandwich",
   "Ham and Cheese",
   NULL, /* startup */
-  NULL, /* shutdown */
+  zend_shutdown, /* shutdown */
   NULL, /* activate */
   NULL, /* deactivate */
   sandwich_sapi_ub_write,
@@ -136,7 +143,6 @@ int sandwich_php_interpreter_create()
   tsrm_ls = ts_resource(0);
 #endif
 
-  sandwich_sapi.php_ini_path_override = "/opt/ecelerity/3rdParty/lib/php.ini";
   sapi_startup(&sandwich_sapi);
   ze_started = 1;
   if (FAILURE == php_module_startup(&sandwich_sapi, &sandwich_module_entry, 1)) {
@@ -149,10 +155,26 @@ int sandwich_php_interpreter_create()
 
 sandwich_per_interp *sandwich_per_interp_setup() 
 {
-  /* if (!conf->eval_ok) return NULL; */
   sandwich_per_interp *info;
-
-#ifndef ZTS
+#ifdef ZTS
+  if(free_interps) {
+    struct interp_list *tofree = free_interps;
+    info = free_interps->interp;
+    free_interps = free_interps->next;
+    free(tofree);
+    /* return interpreter to working state */
+    INTERP_CTX_ENTER(info->ctx);
+    {
+      TSRMLS_FETCH();
+      php_request_startup(TSRMLS_C);
+      info->ref = 1;
+      PG(during_request_startup) = 0;
+      SandwichG(php) = info;
+      INTERP_CTX_LEAVE();
+    }
+    return info;
+  }
+#else
   if(one_true_interp) return one_true_interp;
 #endif
 
@@ -198,14 +220,16 @@ void sandwich_per_interp_shutdown(sandwich_per_interp *interp)
 
   INTERP_CTX_ENTER(interp->ctx);
   {
+    struct interp_list *node;
     TSRMLS_FETCH();
     php_request_shutdown(NULL);
-    INTERP_CTX_LEAVE();
 #ifdef ZTS
-    tsrm_free_interpreter_context(interp->ctx);
+    tsrm_set_interpreter_context(NULL);
+    node = malloc(sizeof(*node));
+    node->interp = interp;
+    node->next = free_interps;
+    free_interps = node;
 #endif
-    interp->ctx = NULL;
-    free(interp);
   }
   INTERP_CTX_LEAVE();
 }

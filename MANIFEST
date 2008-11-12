@@ -1,12 +1,4 @@
-.gdb_history
-10.80.116.88
-a
-a.c
-a.pl
-a.t
-b.pl
 Changes
-ktrace.out
 lib/PHP/Interpreter.pm
 lib/PHP/Interpreter/Class.pm
 lib/PHP/Interpreter/Resource.pm
@@ -20,7 +12,6 @@ phpinterp.c
 phpinterp.h
 README
 stuff/TSRM.patch
-t/.gdb_history
 t/1.t
 t/10.t
 t/11.t
@@ -45,6 +36,6 @@ t/pod.t
 t/pod_coverage.t
 t/test.inc
 t/test_perl_classes.t
+t/test_symbols.t
 TODO
 typemap
-www1.actioneconomics.com

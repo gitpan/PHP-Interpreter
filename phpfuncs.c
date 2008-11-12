@@ -96,7 +96,6 @@ PHP_METHOD(perl, getvariable)
   char         *name;
   int           namelen;
   pTHX;
-  dSP;
 
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &namelen) == FAILURE) {
     return;
@@ -110,6 +109,7 @@ PHP_METHOD(perl, getvariable)
 #ifdef USE_ITHREADS
   aTHX = pl->perl;
 #endif
+  dSP;
   var = NULL;
   if(strchr(name, '[') || strchr(name, '{')) {
     ENTER; SAVETMPS;
@@ -438,6 +438,75 @@ PHP_METHOD(perl, new)
   }
 }
 
+PHP_METHOD(perl, call_method)
+{
+  struct plobj *pl;
+  SV           *var;
+  zval         *retval;
+  zval         *param;
+  zval         ***args;
+  SV           *sparam;
+  int          argc, i;
+  SV           *prv;
+  zval **name[2];
+
+  pTHX;
+
+  if(ZEND_NUM_ARGS() < 2) {
+    WRONG_PARAM_COUNT;
+  }
+  if(zend_get_parameters_array_ex(2, name) == FAILURE) {
+      WRONG_PARAM_COUNT;
+  } else if(Z_TYPE_PP(name[0]) != IS_STRING || Z_TYPE_PP(name[1]) != IS_STRING) {
+      WRONG_PARAM_COUNT;
+  }
+
+  pl = zend_object_store_get_object(getThis() TSRMLS_CC);
+#ifdef USE_ITHREADS
+  aTHX = pl->perl;
+#endif
+  {
+    int cnt;
+    STRLEN n_a;
+    dSP;
+  
+    argc = ZEND_NUM_ARGS();
+    args = (zval ***) safe_emalloc(sizeof(zval **), argc, 0);
+    if(zend_get_parameters_array_ex(argc, args) == FAILURE) {
+      efree(args);
+      WRONG_PARAM_COUNT;
+    }
+    
+    ENTER; SAVETMPS;
+    PUSHMARK(SP);
+    EXTEND(SP, argc + 1);
+    for(i = 0; i < argc; i++) {
+      /* skip the first arg, we'll pass this to call_method */
+      if(i == 1) continue;
+      var = newSVzval(*args[i], SandwichG(php));
+      var = sv_2mortal(var);
+      XPUSHs(var);
+    }
+    PUTBACK;
+    cnt = call_method(Z_STRVAL_PP(name[1]), G_SCALAR | G_EVAL);
+    SPAGAIN;
+    if(cnt == 1) {
+      prv = POPs;
+      SvREFCNT_inc(prv);
+      retval = SvZval(prv TSRMLS_CC);
+      RETVAL_ZVAL(retval, 1, 0);
+    } else {
+      RETVAL_NULL();
+    }
+    if(SvTRUE(ERRSV)) {
+    //  croak(SvPVx(ERRSV, n_a));
+    }
+    PUTBACK;
+    FREETMPS; LEAVE;
+    efree(args);
+  }
+}
+
 static zval *
 sv_prop_read(zval *obj, zval *member, int type TSRMLS_DC)
 {
@@ -574,7 +643,6 @@ static int _sv_call_method(char *method, INTERNAL_FUNCTION_PARAMETERS, int offse
       efree(args);
       WRONG_PARAM_COUNT;
     }
-    
     pl = zend_object_store_get_object(getThis() TSRMLS_CC);
 #ifdef USE_ITHREADS
     aTHX = pl->perl;
@@ -637,7 +705,7 @@ static union _zend_function *sv_get_method(zval **object_ptr, char *name, int le
 
   lc_method_name = emalloc(len + 1);
   zend_str_tolower_copy(lc_method_name, name, len);
-  if (zend_hash_find(&plobj_ce->function_table, lc_method_name, len+1, (void**)&func) == SUCCESS) {
+  if (zend_hash_find(&plsv_ce->function_table, lc_method_name, len+1, (void**)&func) == SUCCESS) {
     efree(lc_method_name);
     return func;
   }
@@ -705,6 +773,67 @@ PHP_METHOD(perlsv, __tostring)
   string = SvPV(pl->sv, stringlen);
   RETURN_STRINGL(string, stringlen, 1);
 }  
+
+PHP_METHOD(perlsv, call)
+{
+  struct plsv  *pl;
+  SV           *var;
+  zval         *retval;
+  char         *name;
+  int           namelen;
+  zval         *param;
+  zval         ***args;
+  SV           *sparam;
+  int          argc, i;
+  SV           *prv;
+  pTHX;
+
+  pl = (struct plsv *) zend_object_store_get_object(getThis() TSRMLS_CC);
+  if(!pl->sv || SvTYPE(pl->sv) != SVt_PVCV) {
+    /* fixme, be more descriptive */
+    WRONG_PARAM_COUNT;
+  }
+#ifdef USE_ITHREADS
+  aTHX = pl->perl;
+#endif
+  {
+    int cnt;
+    STRLEN n_a;
+    dSP;
+  
+    argc = ZEND_NUM_ARGS();
+    args = (zval ***) safe_emalloc(sizeof(zval **), argc, 0);
+    if(zend_get_parameters_array_ex(argc, args) == FAILURE) {
+      efree(args);
+      WRONG_PARAM_COUNT;
+    }
+    ENTER; SAVETMPS;
+    PUSHMARK(SP);
+    if(argc) EXTEND(SP, argc);
+    for(i = 0; i < argc; i++) {
+      var = newSVzval(*args[i], SandwichG(php));
+      var = sv_2mortal(var);
+      XPUSHs(var);
+    }
+    PUTBACK;
+    cnt = call_sv(pl->sv, G_SCALAR | G_EVAL | G_KEEPERR);
+    SPAGAIN;
+    if(cnt == 1) {
+      prv = POPs;
+      SvREFCNT_inc(prv);
+      retval = SvZval(prv TSRMLS_CC);
+      RETVAL_ZVAL(retval, 1, 0);
+    } else {
+      RETVAL_NULL();
+    }
+    if(SvTRUE(ERRSV)) {
+    //  croak(SvPVx(ERRSV, n_a));
+    }
+    PUTBACK;
+    FREETMPS; LEAVE;
+    efree(args);
+  }
+}
 
 struct plsv_iterator {
   zend_object_iterator iter;
@@ -851,11 +980,13 @@ static function_entry plobj_functions[] = {
   PHP_ME(perl, setvariable, NULL, ZEND_ACC_PUBLIC) 
   PHP_ME(perl, call, NULL, ZEND_ACC_PUBLIC) 
   PHP_ME(perl, new, NULL, ZEND_ACC_PUBLIC) 
+  PHP_ME(perl, call_method, NULL, ZEND_ACC_PUBLIC) 
   {NULL, NULL, NULL}
 };
 
 static function_entry plsv_functions[] = {
   PHP_ME(perlsv, __tostring, NULL, ZEND_ACC_PUBLIC)
+  PHP_ME(perlsv, call, NULL, ZEND_ACC_PUBLIC) 
   {NULL, NULL, NULL}
 };
 

@@ -30,7 +30,7 @@ require DynaLoader;
 
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = "1.0.1";
+$VERSION = "1.0.2";
 @ISA = qw(Exporter DynaLoader);
 bootstrap PHP::Interpreter || die "couldn't bootstrap PHP::Interpreter";
 
@@ -278,13 +278,27 @@ Create a new instance of a perl class.
 
 This will return a PHP object of type 'PerlSV::IO::File' that will proxy all the Perl classes' method calls.
 
+=head3 call_method()
+
+Call as static (class) method of a perl class.
+
+  <?php
+     $perl = Perl::getInstance();
+     $instance = $perl->call_method(
+         'DBI', 'connect',
+         array('dbi:SQLite:dbname=file.db, '', '')
+     );
+  ?>
+
+This will effectively call "DBI->connect('dbi:SQLite:dbname=file.db')" and return a PHP object of type 'PerlSV::DBI:db' that will proxy all the Perl classes' method calls.
+
 =head3 getVariable()
 
 Access a Perl symbol by name.
 
   <?php
      $perl = Perl::getInstance();
-     $version = $perl->getVariable("$PHP::Interpreter::VERSION");
+     $version = $perl->getVariable('$PHP::Interpreter::VERSION');
   ?>
 
 This works only for package variables, not lexical (C<my>) variables.

@@ -12,6 +12,6 @@ ok $p->include('test.inc'), 'Add test.inc';
 ok my $a1 = $p->call('ident', 1), "Including a PHP file and executing a function off it";
 is $a1, 1, 'We should get the proper value from the ident() function';
 eval {
-  $p->include('nonexistent.inc'), 'Add test.inc';
+    $p->include('nonexistent.inc');
 };
 is $@, "Error including nonexistent.inc\n", 'Failed includes should die';

@@ -155,6 +155,7 @@ zval *SvZval(SV *sv TSRMLS_DC)
       }
       break;
     case SVt_PVCV: /* code */
+      plsv_wrap_sv(retval, sv TSRMLS_CC);
       break;
     case SVt_PVGV: /* glob */
       /* use orig_sv here to avoid losing your bless */
@@ -521,7 +522,6 @@ SV* SAND_new(classname, ...)
       }
       RETVAL = newSV(0);
       sv_setref_pv(RETVAL, classname, (void *)interp);
-      SvREFCNT_inc(RETVAL);
     }
   OUTPUT:
     RETVAL
